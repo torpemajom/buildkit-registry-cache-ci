@@ -1,0 +1,46 @@
+{
+  "comment": "Every image is pinned to the linux/amd64 manifest digest of the upstream tag (resolved 2026-10-03). The mirror job copies each manifest byte-for-byte (imagetools create --prefer-index=false) to ghcr.io/<owner>/<repo>/mirror/<name>:<tag>, so the mirror digest equals the upstream digest.",
+  "buildx": {
+    "version": "v0.37.2",
+    "commit": "2d379c0c3f22da0d2759d132a0ec81ca949098f0",
+    "binary_sha256": "982ca20490b45ed1ec8d99795974d3d874a358f75938c9c237305010e6b7e548",
+    "binary_path_in_image": "/buildx",
+    "image": "buildx-bin"
+  },
+  "buildkit": {
+    "version": "v0.33.1",
+    "image": "buildkit"
+  },
+  "images": {
+    "buildkit": {
+      "source": "docker.io/moby/buildkit",
+      "tag": "v0.33.1",
+      "digest": "sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5"
+    },
+    "buildx-bin": {
+      "source": "docker.io/docker/buildx-bin",
+      "tag": "0.37.2",
+      "digest": "sha256:9e2e0742054896c699b509239732b91138f781845e764bb4853885f26e142ad5"
+    },
+    "node": {
+      "source": "docker.io/library/node",
+      "tag": "20.20.2-trixie-slim",
+      "digest": "sha256:1694ccde5ea9efb3060bb8612b1f287256061ff2a04d75dc1b71f57cb7239520"
+    },
+    "python": {
+      "source": "docker.io/library/python",
+      "tag": "3.12.15-slim-trixie",
+      "digest": "sha256:6b1f85a08c199d29d5b6d71ab9c27bd5b3b393492e01216a15758ff69c4be8b8"
+    },
+    "golang": {
+      "source": "docker.io/library/golang",
+      "tag": "1.26.8-trixie",
+      "digest": "sha256:af00f232205a01baf323bddc5bb4a4ea2e4cbf49e8ccc988beb2558d0f9c882a"
+    },
+    "debian": {
+      "source": "docker.io/library/debian",
+      "tag": "trixie-20260918-slim",
+      "digest": "sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c"
+    }
+  }
+}

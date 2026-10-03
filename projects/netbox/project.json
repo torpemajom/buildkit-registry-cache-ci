@@ -1,0 +1,17 @@
+{
+  "name": "netbox",
+  "ecosystem": "python-pip",
+  "source": {"git": "https://github.com/netbox-community/netbox", "tag": "v4.7.2", "commit": "251458b89a5eb2f5fe0d20ecd1140ba08f141a9c"},
+  "dockerfile": "Dockerfile",
+  "variants": {"default": {"build_args": {}}},
+  "scenarios": {
+    "S1": {"kind": "append", "path": "netbox/netbox/settings.py", "text": "# scenario S1: late source change\n"},
+    "S2": {"kind": "append", "path": "requirements.txt", "text": "# scenario S2: manifest checksum change, same dependencies\n"},
+    "S3": {"kind": "first_run", "stage": "builder", "suffix": " && echo \"scenario S3\" >/dev/null"}
+  },
+  "expect": {
+    "builder_stage": "builder",
+    "invalidated_from": {"S1": 6, "S2": 4, "S3": 2},
+    "other_stages": {"runtime": {"S1": 5, "S2": 4, "S3": 4}}
+  }
+}

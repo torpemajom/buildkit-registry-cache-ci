@@ -1,0 +1,17 @@
+{
+  "name": "caddy",
+  "ecosystem": "go-modules",
+  "source": {"git": "https://github.com/caddyserver/caddy", "tag": "v2.11.7", "commit": "72dd0fb067f6d7826c7f79907670ba4a713bfe37"},
+  "dockerfile": "Dockerfile",
+  "variants": {"default": {"build_args": {}}},
+  "scenarios": {
+    "S1": {"kind": "append", "path": "cmd/caddy/main.go", "text": "\n// scenario S1: late source change\n"},
+    "S2": {"kind": "append", "path": "go.mod", "text": "\n// scenario S2: manifest checksum change, same dependencies\n"},
+    "S3": {"kind": "first_run", "stage": "builder", "suffix": " && echo \"scenario S3\" >/dev/null"}
+  },
+  "expect": {
+    "builder_stage": "builder",
+    "invalidated_from": {"S1": 6, "S2": 4, "S3": 2},
+    "other_stages": {"runtime": {"S1": 3, "S2": null, "S3": null}}
+  }
+}

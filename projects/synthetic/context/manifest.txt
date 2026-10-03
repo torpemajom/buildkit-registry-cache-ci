@@ -1,0 +1,3 @@
+# Synthetic dependency manifest (stands in for package.json / requirements.txt / go.mod).
+dependency-a==1.0.0
+dependency-b==2.3.1

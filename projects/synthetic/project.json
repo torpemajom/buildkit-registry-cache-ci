@@ -1,0 +1,22 @@
+{
+  "name": "synthetic",
+  "ecosystem": "synthetic",
+  "source": {"local": "context"},
+  "dockerfile": "Dockerfile",
+  "variants": {
+    "small-short": {"build_args": {"LAYER_BYTES": "1048576", "CPU_ITERS": "2000000"}},
+    "small-long": {"build_args": {"LAYER_BYTES": "1048576", "CPU_ITERS": "60000000"}},
+    "large-short": {"build_args": {"LAYER_BYTES": "268435456", "CPU_ITERS": "2000000"}},
+    "large-long": {"build_args": {"LAYER_BYTES": "268435456", "CPU_ITERS": "60000000"}}
+  },
+  "scenarios": {
+    "S1": {"kind": "append", "path": "src/main.txt", "text": "scenario S1: late source change\n"},
+    "S2": {"kind": "append", "path": "manifest.txt", "text": "# scenario S2: manifest checksum change, same dependencies\n"},
+    "S3": {"kind": "first_run", "stage": "builder", "suffix": " && echo \"scenario S3\" >/dev/null"}
+  },
+  "expect": {
+    "builder_stage": "builder",
+    "invalidated_from": {"S1": 6, "S2": 4, "S3": 2},
+    "other_stages": {"runtime": {"S1": 3, "S2": 3, "S3": null}}
+  }
+}

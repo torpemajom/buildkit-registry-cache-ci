@@ -1,0 +1,19 @@
+{
+  "_comment": "Prices are supplied and dated by the author; null = not supplied, and the price-dependent columns of cost_breakeven.csv stay empty (the price-free break-even ratios are always computed). Units: currency per runner minute, per GB-month of registry storage, per GB downloaded from / uploaded to the registry. builds_per_month = number of builds sharing one stored cache per month (storage share of one build = 1 / builds_per_month). Add one object per public price list to compare.",
+  "gb_bytes": 1000000000,
+  "transfer_basis": "registry",
+  "storage_basis": "cache_bytes",
+  "scenarios": [
+    {
+      "name": "to-be-supplied",
+      "as_of": null,
+      "currency": null,
+      "source": null,
+      "runner_per_minute": null,
+      "storage_per_gb_month": null,
+      "download_per_gb": null,
+      "upload_per_gb": null,
+      "builds_per_month": null
+    }
+  ]
+}

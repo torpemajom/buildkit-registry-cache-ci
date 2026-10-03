@@ -1,0 +1,154 @@
+name: measure
+
+on:
+  workflow_dispatch:
+    inputs:
+      projects:
+        description: "Comma-separated projects; a bare name runs all its variants, project:variant selects one"
+        default: "uptime-kuma,netbox,caddy,synthetic"
+        type: string
+      scenarios:
+        description: "Comma-separated scenarios (S0,S1,S2,S3)"
+        default: "S0,S1,S2,S3"
+        type: string
+      shards:
+        description: "Jobs (fresh VMs) per project x variant x scenario"
+        default: "4"
+        type: string
+      trials:
+        description: "Randomized trials (none/min/max each) per job"
+        default: "5"
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+# One measurement run at a time, so runs do not compete for runners or registry bandwidth.
+concurrency:
+  group: measure
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: plan
+        env:
+          PROJECTS: ${{ inputs.projects }}
+          SCENARIOS: ${{ inputs.scenarios }}
+          SHARDS: ${{ inputs.shards }}
+        run: python3 harness/plan.py --projects "$PROJECTS" --scenarios "$SCENARIOS" --shards "$SHARDS" | tee -a "$GITHUB_OUTPUT"
+
+  mirror:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to ghcr.io
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Mirror pinned images into ghcr.io
+        run: python3 harness/mirror.py --mirror "ghcr.io/${GITHUB_REPOSITORY,,}/mirror" --report mirror-report.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: mirror-report
+          path: mirror-report.json
+
+  measure:
+    needs: [plan, mirror]
+    name: ${{ matrix.project }}/${{ matrix.variant }} ${{ matrix.scenario }} shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      # Free plan: at most 20 concurrent jobs on standard runners.
+      max-parallel: 16
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to ghcr.io
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Install pinned buildx
+        run: |
+          set -euo pipefail
+          mirror="ghcr.io/${GITHUB_REPOSITORY,,}/mirror"
+          digest=$(jq -r '.images["buildx-bin"].digest' pins.json)
+          sha=$(jq -r '.buildx.binary_sha256' pins.json)
+          docker pull --quiet "$mirror/buildx-bin@$digest"
+          id=$(docker create "$mirror/buildx-bin@$digest" /buildx)
+          mkdir -p ~/.docker/cli-plugins
+          docker cp "$id:/buildx" ~/.docker/cli-plugins/docker-buildx
+          docker rm "$id"
+          echo "$sha  $HOME/.docker/cli-plugins/docker-buildx" | sha256sum -c -
+          chmod +x ~/.docker/cli-plugins/docker-buildx
+          docker buildx version | grep -F " $(jq -r '.buildx.version' pins.json) "
+      - name: Measure
+        env:
+          PROJECT: ${{ matrix.project }}
+          VARIANT: ${{ matrix.variant }}
+          SCENARIO: ${{ matrix.scenario }}
+          SHARD: ${{ matrix.shard }}
+          TRIALS: ${{ inputs.trials }}
+        run: |
+          set -euo pipefail
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
+          python3 harness/run_job.py \
+            --project "$PROJECT" --variant "$VARIANT" --scenario "$SCENARIO" \
+            --shard "$SHARD" --trials "$TRIALS" \
+            --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --cache-repo "$repo/cache" --mirror "$repo/mirror" \
+            --buildkit-image "$repo/mirror/buildkit@$(jq -r '.images.buildkit.digest' pins.json)" \
+            --workdir "$RUNNER_TEMP/work" \
+            --out "results/raw/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$PROJECT-$VARIANT-$SCENARIO-$SHARD.jsonl"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: raw-${{ matrix.project }}-${{ matrix.variant }}-${{ matrix.scenario }}-${{ matrix.shard }}
+          path: results/raw/*.jsonl
+          if-no-files-found: warn
+
+  aggregate:
+    needs: [measure]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: raw-*
+          path: results/raw
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: mirror-report
+          path: results
+      - name: Merge and analyse
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet -r analysis/requirements.txt
+          "$RUNNER_TEMP/venv/bin/python" analysis/merge.py
+          "$RUNNER_TEMP/venv/bin/python" analysis/analyze.py
+          "$RUNNER_TEMP/venv/bin/python" analysis/cost_model.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: results
+          path: results/
+      - name: Publish results as an OCI image (ghcr.io/<repo>/results:run-<id>-<attempt>)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          tag="ghcr.io/${GITHUB_REPOSITORY,,}/results:run-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          printf 'FROM scratch\nCOPY results/ /results/\n' | docker build --file - \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --tag "$tag" .
+          docker push "$tag"

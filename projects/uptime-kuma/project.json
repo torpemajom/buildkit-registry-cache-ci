@@ -1,0 +1,17 @@
+{
+  "name": "uptime-kuma",
+  "ecosystem": "nodejs-npm",
+  "source": {"git": "https://github.com/louislam/uptime-kuma", "tag": "1.23.17", "commit": "40ec7158534a28e6f8b431a628c53133c327c539"},
+  "dockerfile": "Dockerfile",
+  "variants": {"default": {"build_args": {}}},
+  "scenarios": {
+    "S1": {"kind": "append", "path": "server/server.js", "text": "// scenario S1: late source change\n"},
+    "S2": {"kind": "replace_once", "path": "package.json", "old": "{\n", "new": "{\n    \"x-replication-scenario\": \"S2\",\n"},
+    "S3": {"kind": "first_run", "stage": "builder", "suffix": " && echo \"scenario S3\" >/dev/null"}
+  },
+  "expect": {
+    "builder_stage": "builder",
+    "invalidated_from": {"S1": 6, "S2": 4, "S3": 2},
+    "other_stages": {"runtime": {"S1": 3, "S2": 3, "S3": null}}
+  }
+}
