@@ -275,6 +275,8 @@ def measure(ctx, phase, mode, trial, order_pos, scenario_name):
     cmd.append(ctx["source_dir"])
     record["build_command"] = " ".join(cmd)
 
+    # The builder is already running (--bootstrap) and checked empty, so its start-up
+    # time (builder_create_s) is not part of wall_s.
     before = net_counters(ctx["iface"])
     record["utc_start"] = utc_now()
     started = time.monotonic()

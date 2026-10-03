@@ -17,7 +17,7 @@ FIRST = KEY + (
     "n_vertices", "n_cached", "expected_n_cached", "cache_hit_ratio",
     "import_s", "export_cache_s", "export_prepare_s", "export_write_layers_s", "export_write_manifest_s",
     "export_image_s", "exec_run_s", "buildkit_span_s",
-    "net_rx_bytes", "net_tx_bytes", "pull_base_bytes", "pull_other_bytes",
+    "net_rx_bytes", "net_tx_bytes", "pull_base_bytes", "pull_cache_bytes",
     "cache_bytes", "cache_bytes_excl_base", "cache_blobs", "image_size_bytes",
     "empty_check", "du_records", "du_total", "builder_create_s", "builder_removed",
     "image_os", "image_version", "cpu_model", "vcpus", "ram_bytes", "net_iface",

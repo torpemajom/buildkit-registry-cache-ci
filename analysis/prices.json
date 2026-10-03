@@ -1,19 +1,50 @@
 {
-  "_comment": "Prices are supplied and dated by the author; null = not supplied, and the price-dependent columns of cost_breakeven.csv stay empty (the price-free break-even ratios are always computed). Units: currency per runner minute, per GB-month of registry storage, per GB downloaded from / uploaded to the registry. builds_per_month = number of builds sharing one stored cache per month (storage share of one build = 1 / builds_per_month). Add one object per public price list to compare.",
+  "_comment": "Prices supplied by the thesis author (thesis section 3.5, table 3), excluding tax, as of 2026-10-03, USD. Free tiers and included allowances are ignored. Registry prices are per `unit` (GB = 1e9 bytes, GiB = 2^30 bytes) and converted to GB of gb_bytes bytes. Uploads (ingress) are free at these registries and are not priced.",
+  "as_of": "2026-10-03",
+  "currency": "USD",
   "gb_bytes": 1000000000,
-  "transfer_basis": "registry",
   "storage_basis": "cache_bytes",
-  "scenarios": [
+  "builds_per_month": [10, 100, 1000],
+  "base_runner": "4-core",
+  "runner_per_minute": {
+    "1-core": 0.002,
+    "2-core": 0.006,
+    "4-core": 0.012,
+    "8-core": 0.022
+  },
+  "runner_source": "GitHub Docs: Actions runner pricing; GitHub Actions billing (accessed 2026-10-03)",
+  "registries": [
     {
-      "name": "to-be-supplied",
-      "as_of": null,
-      "currency": null,
-      "source": null,
-      "runner_per_minute": null,
-      "storage_per_gb_month": null,
-      "download_per_gb": null,
-      "upload_per_gb": null,
-      "builds_per_month": null
+      "name": "GitHub Container Registry",
+      "unit": "GB",
+      "storage_per_month": 0,
+      "download": 0,
+      "note": "currently free",
+      "source": "GitHub Docs: GitHub Packages billing (accessed 2026-10-03)"
+    },
+    {
+      "name": "Amazon ECR",
+      "unit": "GB",
+      "storage_per_month": 0.10,
+      "download": 0.09,
+      "note": "download to the internet, US East (Ohio); free within the region",
+      "source": "Amazon ECR pricing (accessed 2026-10-03)"
+    },
+    {
+      "name": "Google Artifact Registry",
+      "unit": "GiB",
+      "storage_per_month": 0.10,
+      "download": 0.12,
+      "note": "storage above 0.5 GiB; free within the same location",
+      "source": "Google Cloud: Artifact Registry pricing; Network pricing (accessed 2026-10-03)"
+    },
+    {
+      "name": "Azure Container Registry",
+      "unit": "GB",
+      "storage_per_month": 0.10,
+      "download": 0.087,
+      "note": "storage 0.00334 USD/GB/day above the included storage (about 0.10 per month); download above 100 GB/month",
+      "source": "Microsoft Azure: Container Registry pricing; Bandwidth pricing (accessed 2026-10-03)"
     }
   ]
 }

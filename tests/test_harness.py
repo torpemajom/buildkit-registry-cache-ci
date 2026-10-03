@@ -75,7 +75,7 @@ class ProgressTest(unittest.TestCase):
         self.assertEqual(summary["n_run_executed"], 2)
         self.assertIsNotNone(summary["import_s"])
         self.assertIsNotNone(summary["export_cache_s"])
-        self.assertGreater(summary["pull_other_bytes"], 0)
+        self.assertGreater(summary["pull_cache_bytes"], 0)
         self.assertEqual(summary["rawjson_unparsed_lines"], 0)
 
 

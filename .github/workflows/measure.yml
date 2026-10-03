@@ -138,6 +138,7 @@ jobs:
           "$RUNNER_TEMP/venv/bin/python" analysis/merge.py
           "$RUNNER_TEMP/venv/bin/python" analysis/analyze.py
           "$RUNNER_TEMP/venv/bin/python" analysis/cost_model.py
+          "$RUNNER_TEMP/venv/bin/python" analysis/facts.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: results

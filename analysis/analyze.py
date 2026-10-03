@@ -4,22 +4,29 @@
   results/summary_by_cell.csv  descriptives per phase x project x variant x scenario x mode
   results/pairs.csv            one row per trial: none/min/max builds of the same trial side by side
   results/tests.csv            hypothesis tests
+  results/hypotheses.csv       decisions for H1-H3 by the pre-registered rules (H4: cost_model.py)
 
 Only valid builds enter the statistics (exit code 0 and no flag); flagged and
 failed builds are counted in summary_by_cell.csv. A trial contributes a pair
 (mode - none) only if both builds are valid.
 
-Tests per project x variant x scenario and cache mode, on d = wall_s(mode) - wall_s(none):
-  Wilcoxon signed-rank (exact when n <= 50 without zeros/ties, otherwise normal
-  approximation), median of d with a percentile bootstrap 95% CI (10,000
-  resamples of the pairs, fixed seed), matched-pairs rank-biserial correlation
-  r = (T+ - T-) / (T+ + T-) (positive: cache slower).
-  Families, Holm-corrected separately:
-    H1        S0 cells, two-sided
-    H2        S1-S3 cells, two-sided
-    H2-trend  Spearman rho between reusable (cached) steps and relative saving
-              (none - mode) / none over all scenarios, per project x variant x mode, two-sided
-    H3        all cells, one-sided "greater" (cache build longer than no-cache build)
+Per project x variant x scenario and cache mode, on d = wall_s(mode) - wall_s(none):
+median of d with a percentile bootstrap 95% CI (10,000 resamples of the pairs,
+fixed seed) and the matched-pairs rank-biserial correlation r = (T+ - T-) / (T+ + T-)
+(Kerby 2014; positive: cache slower). Wilcoxon signed-rank tests are exact when
+n <= 50 without zeros/ties, otherwise the normal approximation; `statistic`
+follows scipy: min(T+, T-) for two-sided tests, T+ for one-sided tests.
+
+Test families (Holm-corrected separately) and decision rules (thesis, table 4):
+  H1  S0 cells, Wilcoxon two-sided. Supported if in both cache modes and in every
+      real project the median difference is negative with p_holm < 0.05.
+  H2  per project x variant x mode, Spearman rho between the cache hit ratio and the
+      relative time saving (none - mode) / none over the trials of S0-S3, one-sided
+      (rho > 0). Supported if in max mode rho > 0 with p_holm < 0.05 in every real project.
+  H3  all cells, Wilcoxon one-sided "greater" (cache build longer). Supported if at
+      least one cell has a positive median difference with p_holm < 0.05.
+  S1-S3 (supplementary, no decision): S1-S3 cells, Wilcoxon two-sided.
+Real projects are those whose ecosystem is not "synthetic".
 """
 import argparse
 import csv
@@ -41,16 +48,18 @@ NUMERIC = (
     "wall_s", "import_s", "export_cache_s", "export_prepare_s", "export_write_layers_s", "export_write_manifest_s",
     "export_image_s", "exec_run_s", "buildkit_span_s", "builder_create_s", "n_vertices", "n_cached",
     "expected_n_cached", "cache_hit_ratio", "net_rx_bytes", "net_tx_bytes", "pull_base_bytes",
-    "pull_other_bytes", "cache_bytes", "cache_bytes_excl_base", "cache_blobs", "image_size_bytes",
+    "pull_cache_bytes", "cache_bytes", "cache_bytes_excl_base", "cache_blobs", "image_size_bytes",
     "exit_code", "order_pos",
 )
 MEDIANS = (
     "import_s", "export_cache_s", "export_image_s", "exec_run_s", "buildkit_span_s", "builder_create_s",
-    "n_cached", "cache_hit_ratio", "net_rx_bytes", "net_tx_bytes", "pull_base_bytes", "pull_other_bytes",
+    "n_cached", "cache_hit_ratio", "net_rx_bytes", "net_tx_bytes", "pull_base_bytes", "pull_cache_bytes",
     "cache_bytes", "cache_bytes_excl_base", "image_size_bytes",
 )
-PAIR_FIELDS = ("wall_s", "n_cached", "net_rx_bytes", "net_tx_bytes", "pull_base_bytes", "pull_other_bytes",
-               "cache_bytes", "cache_bytes_excl_base", "import_s", "export_cache_s", "order_pos", "utc_start")
+PAIR_FIELDS = ("wall_s", "n_cached", "cache_hit_ratio", "net_rx_bytes", "net_tx_bytes", "pull_base_bytes",
+               "pull_cache_bytes", "cache_bytes", "cache_bytes_excl_base", "import_s", "export_cache_s",
+               "order_pos", "utc_start")
+ALPHA = 0.05
 
 
 def load(path):
@@ -192,34 +201,72 @@ def tests(pair_rows):
                 "median_rel_saving": float(np.median((none - cached) / none)),
                 "effect_rank_biserial": rank_biserial(d),
             }
-            hypotheses = [("H1" if scenario == "S0" else "H2", "two-sided"), ("H3", "greater")]
-            for family, alternative in hypotheses:
+            families = [("H1", "H1", "two-sided")] if scenario == "S0" else [("-", "S1-S3", "two-sided")]
+            families.append(("H3", "H3", "greater"))
+            for hypothesis, family, alternative in families:
                 statistic, p, method, note = wilcoxon(d, alternative)
-                out.append({"hypothesis": family, "family": family, "test": "wilcoxon_signed_rank",
+                out.append({"hypothesis": hypothesis, "family": family, "test": "wilcoxon_signed_rank",
                             "alternative": alternative, **base, "statistic": statistic, "p_value": p,
                             "method": method, "note": note})
 
     trend = defaultdict(lambda: ([], []))
     for row in pair_rows:
         for mode in CACHE_MODES:
-            if row[f"wall_s_{mode}"] is not None and row[f"n_cached_{mode}"] is not None:
+            if row[f"wall_s_{mode}"] is not None and row[f"cache_hit_ratio_{mode}"] is not None:
                 x, y = trend[(row["project"], row["variant"], mode)]
-                x.append(row[f"n_cached_{mode}"])
+                x.append(row[f"cache_hit_ratio_{mode}"])
                 y.append((row["wall_s_none"] - row[f"wall_s_{mode}"]) / row["wall_s_none"])
     for (project, variant, mode), (x, y) in sorted(trend.items()):
-        row = {"hypothesis": "H2", "family": "H2-trend", "test": "spearman", "alternative": "two-sided",
+        row = {"hypothesis": "H2", "family": "H2", "test": "spearman", "alternative": "greater",
                "project": project, "variant": variant, "scenario": "S0-S3", "mode": mode, "n_pairs": len(x)}
         if len(set(x)) > 1 and len(x) > 2:
-            result = stats.spearmanr(x, y)
+            result = stats.spearmanr(x, y, alternative="greater")
             row.update({"statistic": float(result.statistic), "spearman_rho": float(result.statistic),
                         "p_value": float(result.pvalue), "method": "t-distribution approximation"})
         else:
-            row.update({"statistic": None, "p_value": None, "note": "too few pairs or constant reusable steps"})
+            row.update({"statistic": None, "p_value": None, "note": "too few pairs or constant cache hit ratio"})
         out.append(row)
     for row in out:
         row.setdefault("p_holm", None)
         row.setdefault("family_size", None)
     holm(out)
+    return out
+
+
+def hypotheses(test_rows, real_projects, real_variants):
+    """Decisions for H1-H3 (thesis, table 4). `supported` is empty when a required test is missing."""
+    def significant(row):
+        return row["p_holm"] is not None and row["p_holm"] < ALPHA
+
+    def cell(row):
+        return {k: row.get(k) for k in ("project", "variant", "scenario", "mode", "n_pairs", "median_diff_s",
+                                         "spearman_rho", "p_value", "p_holm")}
+
+    def required(family, modes):
+        rows = [r for r in test_rows if r["family"] == family and r["project"] in real_projects
+                and r["mode"] in modes]
+        missing = len(real_variants) * len(modes) - len(rows)
+        return rows, missing
+
+    out = []
+    rows, missing = required("H1", CACHE_MODES)
+    ok = [r["median_diff_s"] < 0 and significant(r) for r in rows]
+    out.append({"hypothesis": "H1", "rule": "S0, min and max, every real project: median difference < 0 and "
+                "p_holm < 0.05 (Wilcoxon two-sided)", "tests_evaluated": len(rows), "tests_missing": missing,
+                "tests_meeting_rule": sum(ok), "supported": None if missing or not rows else all(ok),
+                "evidence": json.dumps([{**cell(r), "meets_rule": m} for r, m in zip(rows, ok)])})
+    rows, missing = required("H2", ("max",))
+    ok = [r.get("spearman_rho") is not None and r["spearman_rho"] > 0 and significant(r) for r in rows]
+    out.append({"hypothesis": "H2", "rule": "max mode, every real project: Spearman rho(cache hit ratio, "
+                "relative saving) > 0 and p_holm < 0.05 (one-sided)", "tests_evaluated": len(rows),
+                "tests_missing": missing, "tests_meeting_rule": sum(ok), "supported": None if missing or not rows else all(ok),
+                "evidence": json.dumps([{**cell(r), "meets_rule": m} for r, m in zip(rows, ok)])})
+    rows = [r for r in test_rows if r["family"] == "H3"]
+    ok = [r["median_diff_s"] > 0 and significant(r) for r in rows]
+    out.append({"hypothesis": "H3", "rule": "at least one cell (any project, scenario, cache mode): median "
+                "difference > 0 and p_holm < 0.05 (Wilcoxon one-sided greater)", "tests_evaluated": len(rows),
+                "tests_missing": 0, "tests_meeting_rule": sum(ok), "supported": any(ok) if rows else None,
+                "evidence": json.dumps([cell(r) for r, m in zip(rows, ok) if m])})
     return out
 
 
@@ -234,7 +281,11 @@ def main():
     columns = ["hypothesis", "family", "test", "alternative", "project", "variant", "scenario", "mode", "n_pairs",
                "median_none_s", "median_mode_s", "median_diff_s", "ci95_low_s", "ci95_high_s", "median_rel_saving",
                "statistic", "p_value", "p_holm", "family_size", "effect_rank_biserial", "spearman_rho", "method", "note"]
-    write(os.path.join(args.results, "tests.csv"), tests(pair_rows), columns)
+    test_rows = tests(pair_rows)
+    write(os.path.join(args.results, "tests.csv"), test_rows, columns)
+    real = {r["project"] for r in rows if r["ecosystem"] != "synthetic"}
+    real_variants = {(r["project"], r["variant"]) for r in rows if r["project"] in real}
+    write(os.path.join(args.results, "hypotheses.csv"), hypotheses(test_rows, real, real_variants))
 
 
 if __name__ == "__main__":

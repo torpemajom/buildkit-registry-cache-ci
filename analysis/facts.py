@@ -186,10 +186,10 @@ def main():
                          f"{fmt(s['wall_s_q1'])}–{fmt(s['wall_s_q3'])}", fmt(s["import_s_median"], 2),
                          fmt(s["export_cache_s_median"], 2), mb(s["cache_bytes_median"]),
                          mb(s["cache_bytes_excl_base_median"]), mb(s["net_rx_bytes_median"]),
-                         mb(s["net_tx_bytes_median"]), mb(s["pull_other_bytes_median"])))
+                         mb(s["net_tx_bytes_median"]), mb(s["pull_cache_bytes_median"])))
     out.append(table(["project", "variant", "scenario", "mode", "n", "wall_s median", "wall_s IQR (q1–q3)",
                       "import_s", "export_cache_s", "cache MB", "cache MB excl. base", "rx MB", "tx MB",
-                      "cache blobs pulled MB"], body))
+                      "cache layers pulled MB"], body))
     seeds = []
     for key in sorted({k[1:4] for k in by if k[0] == "seed"}):
         for mode in ("min", "max"):
@@ -203,7 +203,9 @@ def main():
 
     out.append("\n## Tests\n")
     out.append("d = wall_s(mode) − wall_s(none) per trial; CI = percentile bootstrap 95% of the median; "
-               "r = matched-pairs rank-biserial (positive: cache slower); p_holm within the family.\n")
+               "r = matched-pairs rank-biserial (positive: cache slower); p_holm within the family; "
+               "W = min(T+, T−) for two-sided and T+ for one-sided tests; rho = Spearman (one-sided, H2); "
+               "family S1-S3 is supplementary (no decision).\n")
     out.append(table(["family", "alt.", "project", "variant", "scenario", "mode", "n", "median d (s)", "95% CI",
                       "rel. saving", "W / rho", "p", "p_holm", "r"],
                      [(t["family"], t["alternative"], t["project"], t["variant"], t["scenario"], t["mode"],
@@ -211,6 +213,28 @@ def main():
                        f"[{fmt(t['ci95_low_s'], 2)}, {fmt(t['ci95_high_s'], 2)}]" if t["ci95_low_s"] else "–",
                        fmt(t["median_rel_saving"], 3), fmt(t["statistic"], 3), pvalue(t["p_value"]),
                        pvalue(t["p_holm"]), fmt(t["effect_rank_biserial"], 3)) for t in tests]))
+
+    out.append("\n## Hypothesis decisions (thesis, table 4)\n")
+    decisions = read_csv(os.path.join(args.results, "hypotheses.csv"))
+    out.append(table(["hypothesis", "rule", "tests evaluated", "meeting rule", "missing", "supported"],
+                     [(d["hypothesis"], d["rule"], d["tests_evaluated"], d["tests_meeting_rule"], d["tests_missing"],
+                       d["supported"] or "undecided") for d in decisions]))
+
+    out.append("\n## Cost model: break-even ratios (runner minutes per GB)\n")
+    costs = read_csv(os.path.join(args.results, "cost_breakeven.csv"))
+    n_columns = [c for c in costs[0] if c.startswith("rt_star_n")] if costs else []
+    out.append(f"r_a range of the price lists at the base runner price: "
+               f"[{fmt(costs[0]['ra_range_base_low'], 3)}, {fmt(costs[0]['ra_range_base_high'], 3)}]\n"
+               if costs else "")
+    out.append(table(["project", "variant", "scenario", "mode", "dt (min)", "Dg (GB)", "Mg (GB)", "ra*",
+                      *[c.replace("rt_star_n", "rt* n=") for c in n_columns], "ra* in range (base / paid / all)",
+                      "note"],
+                     [(c["project"], c["variant"], c["scenario"], c["mode"], fmt(c["dt_min"], 3),
+                       fmt(c["download_gb"], 3), fmt(c["cache_gb"], 3), fmt(c["ra_star"], 2),
+                       *[fmt(c[k], 1) for k in n_columns],
+                       " / ".join(c[k] or "–" for k in ("ra_star_within_base", "ra_star_within_paid",
+                                                        "ra_star_within_all_runner_prices")),
+                       c["note"]) for c in costs]))
 
     path = os.path.join(args.results, "facts.md")
     with open(path, "w", encoding="utf-8") as fh:

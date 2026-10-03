@@ -139,13 +139,15 @@ def summarize(path, base_blobs=frozenset()):
     run_steps = [s for s in counted if s["instruction"] == "RUN" and not s["cached"]]
     run_durations = [s["duration_s"] for s in run_steps if s["duration_s"] is not None]
 
-    # Blob downloads appear as statuses whose id is the blob digest (with byte totals).
+    # Layer downloads appear as statuses whose id is the blob digest (with byte totals).
+    # Blobs of the base images count as base-image downloads; every other pulled blob
+    # can only come from the imported registry cache.
     pulled = {}
     for (_, status_id), status in statuses.items():
         if status_id and BLOB_RE.match(status_id) and status.get("total"):
             pulled[status_id] = max(pulled.get(status_id, 0), int(status["total"]))
     base_pull = sum(size for digest, size in pulled.items() if digest in base_blobs)
-    other_pull = sum(size for digest, size in pulled.items() if digest not in base_blobs)
+    cache_pull = sum(size for digest, size in pulled.items() if digest not in base_blobs)
 
     errors = [v["error"] for v in vertices.values() if v.get("error")]
     return {
@@ -165,9 +167,10 @@ def summarize(path, base_blobs=frozenset()):
         "exec_run_s": sum(run_durations) if run_steps else 0.0,
         "n_run_executed": len(run_steps),
         "buildkit_span_s": _span(list(vertices.values())),
-        "pulled_blobs": len(pulled),
+        "pulled_base_blobs": sum(1 for digest in pulled if digest in base_blobs),
+        "pulled_cache_blobs": sum(1 for digest in pulled if digest not in base_blobs),
         "pull_base_bytes": base_pull,
-        "pull_other_bytes": other_pull,
+        "pull_cache_bytes": cache_pull,
         "vertex_errors": errors,
         "synthetic_steps": synthetic or None,
         "warnings": [w for w in warnings if w],
