@@ -59,6 +59,18 @@ class ExpectationTest(unittest.TestCase):
             observed = progress.summarize(os.path.join(FIXTURES, fixture))["cached_steps"]
             self.assertEqual(sorted(observed), sorted(scenario.expected_cached(steps, config["expect"], scen, mode)))
 
+    def test_min_mode_rebuilds_builder_stage(self):
+        # netbox: pip output is not byte-reproducible (S3 declares the venv copy invalid), so in
+        # min mode S1 the venv copy is rebuilt although max mode reuses it.
+        config, dockerfile = project("netbox")
+        steps = scenario.steps(dockerfile)
+        self.assertIn("runtime 4/5 COPY", scenario.expected_cached(steps, config["expect"], "S1", "max"))
+        self.assertNotIn("runtime 4/5 COPY", scenario.expected_cached(steps, config["expect"], "S1", "min"))
+        # caddy: the binary is reproducible, so min mode S2 still reuses the runtime copy
+        config, dockerfile = project("caddy")
+        steps = scenario.steps(dockerfile)
+        self.assertIn("runtime 3/3 COPY", scenario.expected_cached(steps, config["expect"], "S2", "min"))
+
     def test_none_and_s0(self):
         config, dockerfile = project("netbox")
         steps = scenario.steps(dockerfile)

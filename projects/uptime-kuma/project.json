@@ -12,6 +12,6 @@
   "expect": {
     "builder_stage": "builder",
     "invalidated_from": {"S1": 6, "S2": 4, "S3": 2},
-    "other_stages": {"runtime": {"S1": 3, "S2": 3, "S3": null}}
+    "other_stages": {"runtime": {"S1": 3, "S2": 3, "S3": 3}}
   }
 }

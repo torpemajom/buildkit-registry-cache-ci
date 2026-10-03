@@ -124,8 +124,10 @@ def expected_cached(dockerfile_steps, expect, scenario, mode):
         stages that COPY --from the builder; content-addressed, so declared per scenario.
     Mode semantics (verified with BuildKit v0.33.1): `max` keeps every step before the
     invalidation point; `min` stores results only for the final image, so builder
-    steps are reusable only when nothing changed (S0); stages after the builder are
-    handled the same way in both modes.
+    steps are reusable only when nothing changed (S0). In `min` mode S1-S3 therefore
+    rebuild the whole builder stage, so a content-addressed step of a later stage is
+    reused only if a full rebuild reproduces the copied files (the S3 declaration)
+    and the scenario itself does not change them.
     """
     if mode == "none":
         return []
@@ -138,8 +140,10 @@ def expected_cached(dockerfile_steps, expect, scenario, mode):
         elif step["stage"] == expect["builder_stage"]:
             hit = mode == "max" and step["index"] < expect["invalidated_from"][scenario]
         else:
-            first_invalid = expect["other_stages"][step["stage"]][scenario]
-            hit = first_invalid is None or step["index"] < first_invalid
+            declared = expect["other_stages"][step["stage"]]
+            points = [declared[scenario]] + ([declared["S3"]] if mode == "min" else [])
+            points = [p for p in points if p is not None]
+            hit = not points or step["index"] < min(points)
         if hit:
             cached.append(f"{step['stage']} {step['index']}/{step['count']} {step['instruction']}")
     return cached
