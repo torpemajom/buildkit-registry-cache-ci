@@ -1,0 +1,56 @@
+[
+  {
+    "name": "buildkit",
+    "source": "docker.io/moby/buildkit@sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5",
+    "target": "ghcr.io/torpemajom/buildkit-registry-cache-ci/mirror/buildkit:v0.33.1",
+    "pinned_digest": "sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5",
+    "action": "already mirrored",
+    "mirror_digest": "sha256:98cc6a3fc46220d00f8224ae483f3274fc874e9be8d7dd1e2e2c5481209228b5",
+    "verified": true
+  },
+  {
+    "name": "buildx-bin",
+    "source": "docker.io/docker/buildx-bin@sha256:9e2e0742054896c699b509239732b91138f781845e764bb4853885f26e142ad5",
+    "target": "ghcr.io/torpemajom/buildkit-registry-cache-ci/mirror/buildx-bin:0.37.2",
+    "pinned_digest": "sha256:9e2e0742054896c699b509239732b91138f781845e764bb4853885f26e142ad5",
+    "action": "already mirrored",
+    "mirror_digest": "sha256:9e2e0742054896c699b509239732b91138f781845e764bb4853885f26e142ad5",
+    "verified": true
+  },
+  {
+    "name": "debian",
+    "source": "docker.io/library/debian@sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c",
+    "target": "ghcr.io/torpemajom/buildkit-registry-cache-ci/mirror/debian:trixie-20260918-slim",
+    "pinned_digest": "sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c",
+    "action": "already mirrored",
+    "mirror_digest": "sha256:7792b1f7702a86946cd518db72b6a407302c3e9bc1635634368b878189e8221c",
+    "verified": true
+  },
+  {
+    "name": "golang",
+    "source": "docker.io/library/golang@sha256:af00f232205a01baf323bddc5bb4a4ea2e4cbf49e8ccc988beb2558d0f9c882a",
+    "target": "ghcr.io/torpemajom/buildkit-registry-cache-ci/mirror/golang:1.26.8-trixie",
+    "pinned_digest": "sha256:af00f232205a01baf323bddc5bb4a4ea2e4cbf49e8ccc988beb2558d0f9c882a",
+    "action": "already mirrored",
+    "mirror_digest": "sha256:af00f232205a01baf323bddc5bb4a4ea2e4cbf49e8ccc988beb2558d0f9c882a",
+    "verified": true
+  },
+  {
+    "name": "node",
+    "source": "docker.io/library/node@sha256:1694ccde5ea9efb3060bb8612b1f287256061ff2a04d75dc1b71f57cb7239520",
+    "target": "ghcr.io/torpemajom/buildkit-registry-cache-ci/mirror/node:20.20.2-trixie-slim",
+    "pinned_digest": "sha256:1694ccde5ea9efb3060bb8612b1f287256061ff2a04d75dc1b71f57cb7239520",
+    "action": "already mirrored",
+    "mirror_digest": "sha256:1694ccde5ea9efb3060bb8612b1f287256061ff2a04d75dc1b71f57cb7239520",
+    "verified": true
+  },
+  {
+    "name": "python",
+    "source": "docker.io/library/python@sha256:6b1f85a08c199d29d5b6d71ab9c27bd5b3b393492e01216a15758ff69c4be8b8",
+    "target": "ghcr.io/torpemajom/buildkit-registry-cache-ci/mirror/python:3.12.15-slim-trixie",
+    "pinned_digest": "sha256:6b1f85a08c199d29d5b6d71ab9c27bd5b3b393492e01216a15758ff69c4be8b8",
+    "action": "already mirrored",
+    "mirror_digest": "sha256:6b1f85a08c199d29d5b6d71ab9c27bd5b3b393492e01216a15758ff69c4be8b8",
+    "verified": true
+  }
+]
